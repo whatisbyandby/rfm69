@@ -367,11 +367,10 @@ where
 
     pub fn tx_level(&mut self, power_level: i8, is_high_power: bool) -> Result<(), Espi> {
         if is_high_power {
-           // Write the power level 
+            // Write the power level
         }
         self.tx_pwr = power_level;
         Ok(())
-
     }
 
     fn enable_high_power(&mut self) -> Result<(), Espi> {
