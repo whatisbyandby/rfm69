@@ -25,6 +25,7 @@ pub struct Rfm69<S> {
     mode: Mode,
     dio: [Option<DioMapping>; 6],
     rssi: i16,
+    tx_pwr: i8,
 }
 
 impl<S, Espi> Rfm69<S>
@@ -38,6 +39,7 @@ where
             mode: Mode::Standby,
             dio: [None; 6],
             rssi: 0,
+            tx_pwr: 0,
         }
     }
 
@@ -271,10 +273,20 @@ where
 
         self.reset_fifo()?;
 
+        // If the trasnmit power is over 18, turn on boost mode
+        if self.tx_pwr >= 18 {
+            self.enable_high_power()?;
+        }
+
         self.write_many(Registers::Fifo, buffer)?;
 
         self.mode(Mode::Transmitter)?;
         while !self.is_packet_sent()? {}
+
+        // If the trasnmit power is over 18, turn off boost mode
+        if self.tx_pwr >= 18 {
+            self.disable_high_power()?;
+        }
 
         self.mode(Mode::Standby)
     }
@@ -351,6 +363,29 @@ where
     /// Configure Sensitivity Boost in corresponding register `RegTestLna (0x58)`.
     pub fn sensitivity_boost(&mut self, boost: SensitivityBoost) -> Result<(), Espi> {
         self.write(Registers::TestLna, boost as u8)
+    }
+
+    pub fn tx_level(&mut self, power_level: i8, is_high_power: bool) -> Result<(), Espi> {
+        if is_high_power {
+           // Write the power level 
+        }
+        self.tx_pwr = power_level;
+        Ok(())
+
+    }
+
+    fn enable_high_power(&mut self) -> Result<(), Espi> {
+        self.write(Registers::Ocp, 0x0F)?;
+        self.write(Registers::TestPa1, 0x5D)?;
+        self.write(Registers::TestPa2, 0x7C)?;
+        Ok(())
+    }
+
+    fn disable_high_power(&mut self) -> Result<(), Espi> {
+        self.write(Registers::Ocp, 0x1A)?;
+        self.write(Registers::TestPa1, 0x55)?;
+        self.write(Registers::TestPa2, 0x70)?;
+        Ok(())
     }
 
     /// Configure Pa13 dBm 1 in corresponding register `RegTestPa1 (0x5A)`.
