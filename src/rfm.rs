@@ -398,9 +398,11 @@ where
         };
 
         let reg_value = match adjusted_power {
-           p if p <= 13 => PaOptions::Pa1On as u8 | (adjusted_power + 18) as u8,
-           p if p >= 18 => (PaOptions::Pa1On as u8 | PaOptions::Pa2On as u8)| (adjusted_power + 11) as u8,
-           _ => (PaOptions::Pa1On as u8 | PaOptions::Pa2On as u8) | (adjusted_power + 14) as u8,
+            p if p <= 13 => PaOptions::Pa1On as u8 | (adjusted_power + 18) as u8,
+            p if p >= 18 => {
+                (PaOptions::Pa1On as u8 | PaOptions::Pa2On as u8) | (adjusted_power + 11) as u8
+            }
+            _ => (PaOptions::Pa1On as u8 | PaOptions::Pa2On as u8) | (adjusted_power + 14) as u8,
         };
 
         self.write(Registers::PaLevel, reg_value)?;
