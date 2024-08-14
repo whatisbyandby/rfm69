@@ -275,7 +275,7 @@ where
 
         // If the trasnmit power is over 18, turn on boost mode
         if self.tx_pwr >= 18 {
-            self.enable_high_power()?;
+            self.enable_boost_mode()?;
         }
 
         self.write_many(Registers::Fifo, buffer)?;
@@ -285,7 +285,7 @@ where
 
         // If the trasnmit power is over 18, turn off boost mode after sending message
         if self.tx_pwr >= 18 {
-            self.disable_high_power()?;
+            self.disable_boost_mode()?;
         }
 
         self.mode(Mode::Standby)
@@ -310,7 +310,7 @@ where
 
         // If the trasnmit power is over 18, turn on boost mode
         if self.tx_pwr >= 18 {
-            self.enable_high_power()?;
+            self.enable_boost_mode()?;
         }
 
         self.mode(Mode::Transmitter)?;
@@ -324,7 +324,7 @@ where
 
         // If the trasnmit power is over 18, turn off boost mode after sending message
         if self.tx_pwr >= 18 {
-            self.disable_high_power()?;
+            self.disable_boost_mode()?;
         }
 
         self.mode(Mode::Standby)
@@ -376,52 +376,46 @@ where
         self.write(Registers::TestLna, boost as u8)
     }
 
-    pub fn tx_level(&mut self, power_level: i8, is_high_power: bool) -> Result<(), Espi> {
-        let mut reg_value: u8 = 0x00;
-        let mut pwr_level: i8 = power_level;
+    pub fn tx_level(&mut self, power_level: i8) -> Result<(), Espi> {
+        let adjusted_power = match power_level {
+            p if p < -18 => -18,
+            p if p > 13 => 13,
+            p => p,
+        };
 
-        if is_high_power {
-            if pwr_level <= -2 {
-                pwr_level = -2;
-            }
-            if pwr_level <= 13 {
-                reg_value = PaOptions::Pa1On as u8 | ((pwr_level + 18) as u8 & 0x1F);
-            }
-            if pwr_level >= 18 {
-                if pwr_level > 20 {
-                    pwr_level = 20;
-                }
-                // both PA0 and PA1 should be turned on
-                reg_value = (PaOptions::Pa1On as u8 | PaOptions::Pa2On as u8)
-                    | (pwr_level + 11) as u8 & 0x1F;
-            } else {
-                reg_value = PaOptions::Pa1On as u8 | (pwr_level + 14) as u8 & 0x1F;
-            }
-        } else {
-            if pwr_level < -18 {
-                pwr_level = -18;
-            }
-
-            if pwr_level > 13 {
-                pwr_level = 13;
-            }
-
-            reg_value = PaOptions::Pa0On as u8 | (pwr_level + 18) as u8 & 0x1F;
-        }
+        let reg_value = PaOptions::Pa0On as u8 | (adjusted_power + 18) as u8;
 
         self.write(Registers::PaLevel, reg_value)?;
-        self.tx_pwr = power_level;
+        self.tx_pwr = adjusted_power;
         Ok(())
     }
 
-    fn enable_high_power(&mut self) -> Result<(), Espi> {
+    pub fn tx_level_high_pwr(&mut self, power_level: i8) -> Result<(), Espi> {
+        let adjusted_power = match power_level {
+            p if p < -2 => -2,
+            p if p > 20 => 20,
+            p => p,
+        };
+
+        let reg_value = match adjusted_power {
+           p if p <= 13 => PaOptions::Pa1On as u8 | (adjusted_power + 18) as u8,
+           p if p >= 18 => (PaOptions::Pa1On as u8 | PaOptions::Pa2On as u8)| (adjusted_power + 11) as u8,
+           _ => (PaOptions::Pa1On as u8 | PaOptions::Pa2On as u8) | (adjusted_power + 14) as u8,
+        };
+
+        self.write(Registers::PaLevel, reg_value)?;
+        self.tx_pwr = adjusted_power;
+        Ok(())
+    }
+
+    fn enable_boost_mode(&mut self) -> Result<(), Espi> {
         self.write(Registers::Ocp, 0x0F)?;
         self.write(Registers::TestPa1, 0x5D)?;
         self.write(Registers::TestPa2, 0x7C)?;
         Ok(())
     }
 
-    fn disable_high_power(&mut self) -> Result<(), Espi> {
+    fn disable_boost_mode(&mut self) -> Result<(), Espi> {
         self.write(Registers::Ocp, 0x1A)?;
         self.write(Registers::TestPa1, 0x55)?;
         self.write(Registers::TestPa2, 0x70)?;
