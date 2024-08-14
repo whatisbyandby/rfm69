@@ -377,11 +377,7 @@ where
     }
 
     pub fn tx_level(&mut self, power_level: i8) -> Result<(), Espi> {
-        let adjusted_power = match power_level {
-            p if p < -18 => -18,
-            p if p > 13 => 13,
-            p => p,
-        };
+        let adjusted_power = power_level.clamp(-18, 13);
 
         let reg_value = PaOptions::Pa0On as u8 | (adjusted_power + 18) as u8;
 
@@ -391,11 +387,7 @@ where
     }
 
     pub fn tx_level_high_pwr(&mut self, power_level: i8) -> Result<(), Espi> {
-        let adjusted_power = match power_level {
-            p if p < -2 => -2,
-            p if p > 20 => 20,
-            p => p,
-        };
+        let adjusted_power = power_level.clamp(-2, 20);
 
         let reg_value = match adjusted_power {
             p if p <= 13 => PaOptions::Pa1On as u8 | (adjusted_power + 18) as u8,
