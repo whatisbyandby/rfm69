@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - main
-      - high-power-mode
   pull_request:
 
 env:
